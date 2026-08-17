@@ -3,6 +3,7 @@
   const HOURS = DATA.hours;
   const GENES = DATA.genes;
   const BY_NAME = Object.fromEntries(GENES.map((g) => [g.gene, g]));
+  const CASCADE = Object.fromEntries((window.CASCADE?.genes || []).map((g) => [g.gene, g]));
 
   const CALIBRATORS = ["BZLF1", "BRLF1", "BMRF1", "BALF5", "BXLF1", "BLLF1", "BFRF3"];
   const PALETTE = [
@@ -18,8 +19,37 @@
     showGhosts: true,
     showBand: true,
     classFilter: "all",
+    cageFilter: "all",
     search: "",
   };
+
+  function cascadeOf(name) {
+    return CASCADE[name] || null;
+  }
+
+  function cageKin(name) {
+    return cascadeOf(name)?.cage?.kinetics || null;
+  }
+
+  function cageLabel(kin) {
+    if (kin === "early") return "CAGE E";
+    if (kin === "leaky") return "CAGE LL";
+    if (kin === "late") return "CAGE L";
+    if (kin === "latent") return "CAGE lat";
+    return "";
+  }
+
+  function proteinFolds(p, key) {
+    if (!p) return [];
+    const hours = p[key + "_hours"];
+    const sig = p[key + "_signal"];
+    if (!hours || !sig || !sig[0] || sig[0] <= 0) return [];
+    return hours.map((hr, i) => {
+      const v = sig[i];
+      if (v == null || v <= 0) return null;
+      return { hour: hr, fold: v / sig[0] };
+    }).filter(Boolean);
+  }
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -68,6 +98,7 @@
     const q = state.search.trim().toLowerCase();
     return GENES.filter((g) => {
       if (state.classFilter !== "all" && g.class !== state.classFilter) return false;
+      if (state.cageFilter !== "all" && cageKin(g.gene) !== state.cageFilter) return false;
       if (q && !g.gene.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -81,6 +112,11 @@
 
   function pinClass(cls) {
     GENES.filter((g) => g.class === cls).forEach((g) => state.pinned.add(g.gene));
+    render();
+  }
+
+  function pinCage(kin) {
+    GENES.filter((g) => cageKin(g.gene) === kin).forEach((g) => state.pinned.add(g.gene));
     render();
   }
 
@@ -294,7 +330,8 @@
         tip.style.display = "block";
         tip.style.left = ev.clientX - rect.left + 14 + "px";
         tip.style.top = ev.clientY - rect.top + 14 + "px";
-        tip.innerHTML = `<strong>${g.gene}</strong> · ${g.class}<br>${hr} h → ${fold.toFixed(1)}× vs 0 h`;
+        const ckin = cageKin(hit.gene);
+        tip.innerHTML = `<strong>${g.gene}</strong> · ${g.class}${ckin ? " · CAGE " + ckin : ""}<br>${hr} h → ${fold.toFixed(1)}× RNA vs 0 h`;
       } else {
         tip.style.display = "none";
       }
@@ -326,10 +363,12 @@
       row.className = "gene-row";
       if (state.pinned.has(g.gene)) row.classList.add("pinned");
       if (state.hovered === g.gene) row.classList.add("hovered");
-      row.innerHTML = `
+        const ckin = cageKin(g.gene);
+        const mm = cascadeOf(g.gene)?.array_vs_cage_mismatch;
+        row.innerHTML = `
         <span class="swatch" style="background:${state.pinned.has(g.gene) ? colorFor(g.gene) : "#3a4654"}"></span>
         <span class="name">${g.gene}</span>
-        <span class="meta cls-${g.class}">${g.class} · pk ${g.peak_hour}h</span>`;
+        <span class="meta cls-${g.class}">${g.class}${ckin ? ` · <span class="cage-${ckin}">${cageLabel(ckin)}</span>` : ""}${mm ? " · ≠" : ""} · pk ${g.peak_hour}h</span>`;
       row.onmouseenter = () => {
         state.hovered = g.gene;
         renderChartOnly();
@@ -356,6 +395,124 @@
     else if (state.pinned.size === 1) showDetail([...state.pinned][0]);
   }
 
+  function svgEl(name, attrs) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    return el;
+  }
+
+  function drawAlignedSparklines(host, g) {
+    const cas = cascadeOf(g.gene);
+    const prot = cas?.protein;
+    const w = 268;
+    const h = 92;
+    const m = { t: 8, r: 8, b: 16, l: 28 };
+    const svg = svgEl("svg", { class: "mini", viewBox: `0 0 ${w} ${h}` });
+    const x = (hr) => m.l + (hr / 72) * (w - m.l - m.r);
+    const rnaFolds = g.hours.map((hr, i) => ({ hour: hr, fold: g.linear_fold[i] }));
+    const ak = proteinFolds(prot, "akata");
+    const p3 = proteinFolds(prot, "p3hr1");
+    const allF = [...rnaFolds.map((d) => d.fold), ...ak.map((d) => d.fold), ...p3.map((d) => d.fold)];
+    const useLog = state.yMode === "log2";
+    const yv = (f) => (useLog ? Math.log2(Math.max(f, 1e-6)) : f);
+    let yMin = Math.min(...allF.map(yv));
+    let yMax = Math.max(...allF.map(yv));
+    const pad = (yMax - yMin) * 0.12 || 0.2;
+    yMin -= pad;
+    yMax += pad;
+    const y = (f) => m.t + ((yMax - yv(f)) / (yMax - yMin)) * (h - m.t - m.b);
+    const line = (pts, color, dash) => {
+      if (pts.length < 2) return;
+      const p = svgEl("path", {
+        d: pts.map((d, i) => `${i ? "L" : "M"}${x(d.hour).toFixed(1)},${y(d.fold).toFixed(1)}`).join(" "),
+        fill: "none",
+        stroke: color,
+        "stroke-width": "1.8",
+        "stroke-dasharray": dash || "",
+      });
+      svg.appendChild(p);
+    };
+    const dots = (pts, color, r) => {
+      pts.forEach((d) => {
+        const c = svgEl("circle", { cx: x(d.hour), cy: y(d.fold), r, fill: color });
+        svg.appendChild(c);
+      });
+    };
+    [0, 24, 48, 72].forEach((hr) => {
+      const t = svgEl("text", { x: x(hr), y: h - 3, "text-anchor": "middle", fill: "#8b9aab", "font-size": "9" });
+      t.textContent = hr + "h";
+      svg.appendChild(t);
+    });
+    line(rnaFolds, "#5eb0ff");
+    dots(rnaFolds, "#5eb0ff", 2.2);
+    if (p3.length) {
+      line(p3, "#7dce9a", "3 2");
+      dots(p3, "#7dce9a", 2.2);
+    }
+    if (ak.length) dots(ak, "#f0a04b", 3.2);
+    host.replaceChildren(svg);
+  }
+
+  function scatterPoints() {
+    return (window.CASCADE?.genes || []).filter((c) => c.rna_fold_48h && c.akata_protein_fold_48h);
+  }
+
+  function drawScatter(host, highlight) {
+    const pts = scatterPoints();
+    const w = 268;
+    const h = 220;
+    const m = { t: 16, r: 12, b: 32, l: 40 };
+    const svg = svgEl("svg", { class: "scatter", viewBox: `0 0 ${w} ${h}` });
+    const lx = (f) => Math.log2(Math.max(f, 1e-6));
+    const xs = pts.map((p) => lx(p.rna_fold_48h));
+    const ys = pts.map((p) => lx(p.akata_protein_fold_48h));
+    const xMin = Math.min(0, ...xs) - 0.4;
+    const xMax = Math.max(1, ...xs) + 0.4;
+    const yMin = Math.min(0, ...ys) - 0.4;
+    const yMax = Math.max(1, ...ys) + 0.4;
+    const X = (f) => m.l + ((lx(f) - xMin) / (xMax - xMin)) * (w - m.l - m.r);
+    const Y = (f) => m.t + ((yMax - lx(f)) / (yMax - yMin)) * (h - m.t - m.b);
+    const xlab = svgEl("text", { x: m.l + (w - m.l - m.r) / 2, y: h - 6, "text-anchor": "middle", fill: "#8b9aab", "font-size": "10" });
+    xlab.textContent = "RNA 48 h (log2 fold, Yuan)";
+    svg.appendChild(xlab);
+    const ylab = svgEl("text", { x: 12, y: m.t + (h - m.t - m.b) / 2, "text-anchor": "middle", fill: "#8b9aab", "font-size": "10", transform: `rotate(-90 12 ${m.t + (h - m.t - m.b) / 2})` });
+    ylab.textContent = "protein 48 h (log2 fold, Akata TMT)";
+    svg.appendChild(ylab);
+    const diag = svgEl("line", {
+      x1: X(2 ** xMin), y1: Y(2 ** xMin), x2: X(2 ** xMax), y2: Y(2 ** xMax),
+      stroke: "#334155", "stroke-dasharray": "3 3",
+    });
+    svg.appendChild(diag);
+    pts.forEach((p) => {
+      const on = p.gene === highlight;
+      const c = svgEl("circle", {
+        cx: X(p.rna_fold_48h),
+        cy: Y(p.akata_protein_fold_48h),
+        r: on ? 5 : 3.2,
+        fill: on ? "#5eb0ff" : "#6b7c8d",
+        opacity: on ? 1 : 0.55,
+        "data-gene": p.gene,
+      });
+      svg.appendChild(c);
+    });
+    svg.onclick = (ev) => {
+      const t = ev.target;
+      if (t && t.dataset && t.dataset.gene) togglePin(t.dataset.gene);
+    };
+    svg.onmousemove = (ev) => {
+      const gene = ev.target && ev.target.dataset ? ev.target.dataset.gene : null;
+      if (gene && gene !== state.hovered) {
+        state.hovered = gene;
+        renderListHover();
+      }
+    };
+    svg.onmouseleave = () => {
+      state.hovered = null;
+      renderListHover();
+    };
+    host.replaceChildren(svg);
+  }
+
   function showDetail(name) {
     const g = BY_NAME[name];
     const el = $("#detail-body");
@@ -363,6 +520,9 @@
       el.innerHTML = `<p class="empty">Hover a line or pin a gene. Faint traces are the other 59 RNAs (10–90% band = typical range).</p>`;
       return;
     }
+    const cas = cascadeOf(name);
+    const cage = cas?.cage;
+    const prot = cas?.protein;
     const peakMark = g.peak_hour;
     const rows = g.hours
       .map(
@@ -370,19 +530,43 @@
           `<tr class="${hr === peakMark ? "peak" : ""}"><td>${hr} h</td><td>${g.linear_fold[i].toFixed(1)}×</td><td>${Math.log2(Math.max(g.linear_fold[i], 1e-6)).toFixed(2)}</td></tr>`
       )
       .join("");
+    const akF = cas?.akata_protein_fold_48h;
+    const rna48 = cas?.rna_fold_48h;
+    const cageBits = cage
+      ? `<dt>CAGE</dt><dd class="cage-${cage.kinetics}">${cage.kinetics}${cage.vpic_independent_late ? " · vPIC-indep. late" : ""}</dd>
+         <dt>BALF2</dt><dd>${cage.balf2_ratio.toFixed(2)} (DNA-rep. ratio)</dd>
+         <dt>BDLF4</dt><dd>${cage.bdlf4_ratio.toFixed(2)} (vPIC ratio)</dd>`
+      : `<dt>CAGE</dt><dd>not in Djavadian Table 2</dd>`;
+    const mismatch = cas?.array_vs_cage_mismatch
+      ? `<span class="pill warn">array class ≠ CAGE class</span>`
+      : "";
+    const protBits = prot
+      ? `<dt>Protein 48 h</dt><dd>${akF ? akF.toFixed(1) + "× Akata TMT" : "Akata 0 h not detected"}</dd>`
+      : `<dt>Protein</dt><dd>not quantified in Ersing WCL</dd>`;
     el.innerHTML = `
-      <h2>${g.gene}</h2>
+      <h2>${g.gene} ${mismatch}</h2>
       <dl class="kv">
-        <dt>Class</dt><dd class="cls-${g.class}">${g.class}</dd>
-        <dt>Peak</dt><dd>${g.peak_fold.toFixed(1)}× at ${g.peak_hour} h</dd>
+        <dt>Array</dt><dd class="cls-${g.class}">${g.class} · peak ${g.peak_fold.toFixed(1)}× at ${g.peak_hour} h</dd>
+        ${cageBits}
+        ${protBits}
         <dt>Oligo</dt><dd>nt ${g.probe_nt || "—"}</dd>
-        <dt>Pinned</dt><dd>${state.pinned.has(g.gene) ? "yes — click to unpin" : "no — click list/line to pin"}</dd>
       </dl>
+      <div class="mini-block">
+        <h3>RNA vs protein vs hour</h3>
+        <div id="spark-host"></div>
+        <div class="legend-mini"><span class="rna">Yuan RNA</span><span class="p3">P3HR1 protein</span><span class="akata">Akata protein (0, 48 h)</span></div>
+      </div>
+      <div class="mini-block">
+        <h3>48 h RNA vs Akata protein</h3>
+        <div id="scatter-host"></div>
+      </div>
       <table class="pts">
-        <thead><tr><th>Hour</th><th>Fold</th><th>log2</th></tr></thead>
+        <thead><tr><th>Hour</th><th>RNA fold</th><th>log2</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="note">Yuan et al. <em>J Virol</em> 2006 Table 1 (doi:10.1128/JVI.80.5.2548-2565.2006). Signed-fold converted to linear (negatives inverted). Missing table cells are not shown.</p>`;
+      <p class="note">Yuan RNA is Akata cytoplasmic fold vs 0 h. Ersing protein is TMT in gp350<sup>+</sup> cells (Akata anti-IgG 0 vs 48 h; P3HR1-ZHT/RHT 0/24/48/72 h) — not paired aliquots. Djavadian CAGE class is HEK293 at 48 h by DNA-replication dependence. ${rna48 && akF ? `At 48 h this gene is ${rna48.toFixed(1)}× RNA vs ${akF.toFixed(1)}× protein.` : ""} Nested lytic RNAs can look “early” on arrays while CAGE and protein are late (Djavadian Fig. 1).</p>`;
+    drawAlignedSparklines($("#spark-host"), g);
+    drawScatter($("#scatter-host"), name);
   }
 
   function render() {
@@ -392,7 +576,13 @@
     else if (state.pinned.size === 1) showDetail([...state.pinned][0]);
     else {
       $("#detail-body").innerHTML = `<p class="empty">Hover a faint line to identify it. Click to pin (color). Context: all 59 genes as ghosts + 10–90 percentile band and dashed median. Default pins are MultiCAST calibrators.</p>
+        <div class="mini-block">
+          <h3>48 h RNA vs Akata protein</h3>
+          <p class="empty" style="margin:0 0 8px">Each point is one gene with both Yuan RNA and Ersing Akata TMT at 48 h. Diagonal = equal fold. IE RNAs often peak before 24 h, so 48 h RNA can look modest while protein is still high.</p>
+          <div id="scatter-host"></div>
+        </div>
         <p class="note">Pinned now: ${[...state.pinned].join(", ") || "none"}</p>`;
+      drawScatter($("#scatter-host"), null);
     }
     $("#y-linear").classList.toggle("active", state.yMode === "linear");
     $("#y-log2").classList.toggle("active", state.yMode === "log2");
@@ -429,6 +619,27 @@
       const top = [...GENES].sort((a, b) => b.peak_fold - a.peak_fold).slice(0, 8).map((g) => g.gene);
       pinOnly(top);
     };
+    $("#preset-protein").onclick = () => {
+      pinOnly(["BZLF1", "BRLF1", "BMRF1", "BFRF1", "BLLF1", "BFRF3"]);
+    };
+    $("#preset-mismatch").onclick = () => {
+      pinOnly(GENES.filter((g) => cascadeOf(g.gene)?.array_vs_cage_mismatch).map((g) => g.gene));
+    };
+    document.querySelectorAll("[data-cage]").forEach((btn) => {
+      btn.onclick = () => {
+        const kin = btn.dataset.cage;
+        if (btn.dataset.action === "pin-cage") {
+          pinCage(kin);
+          return;
+        }
+        if (kin === "all") state.cageFilter = "all";
+        else state.cageFilter = state.cageFilter === kin ? "all" : kin;
+        document.querySelectorAll("#cage-filter [data-cage]").forEach((b) => {
+          b.classList.toggle("active", b.dataset.cage === state.cageFilter);
+        });
+        renderList();
+      };
+    });
     $("#y-linear").onclick = () => {
       state.yMode = "linear";
       render();

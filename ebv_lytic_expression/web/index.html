@@ -10,7 +10,7 @@
   <div class="app">
     <header class="topbar">
       <h1>EBV lytic RNA vs 0 h</h1>
-      <span class="sub">Akata + anti-IgG cytoplasmic RNA · 59 complete oligo series · x-axis is real hours</span>
+      <span class="sub">Akata cytoplasmic RNA vs 0 h · 59 complete oligo series · real-hour x-axis · CAGE class + protein in Focus</span>
     </header>
 
     <aside class="sidebar">
@@ -30,6 +30,18 @@
         <button class="chip" data-class="E" data-action="pin" type="button">+ Early</button>
         <button class="chip" data-class="L" data-action="pin" type="button">+ Late</button>
       </div>
+      <div class="section-label">CAGE class (DNA replication)</div>
+      <div class="chips" id="cage-filter">
+        <button class="chip active" data-cage="all" type="button">All</button>
+        <button class="chip" data-cage="early" type="button">Early</button>
+        <button class="chip" data-cage="leaky" type="button">Leaky</button>
+        <button class="chip" data-cage="late" type="button">True late</button>
+      </div>
+      <div class="chips">
+        <button class="chip" data-cage="early" data-action="pin-cage" type="button">+ CAGE E</button>
+        <button class="chip" data-cage="leaky" data-action="pin-cage" type="button">+ Leaky</button>
+        <button class="chip" data-cage="late" data-action="pin-cage" type="button">+ CAGE L</button>
+      </div>
       <div class="section-label" id="count"></div>
       <div id="gene-list" class="gene-list"></div>
     </aside>
@@ -38,6 +50,8 @@
       <div class="toolbar">
         <button class="btn primary" id="preset-cal" type="button">Calibrators</button>
         <button class="btn" id="preset-peaks" type="button">Top 8 peaks</button>
+        <button class="btn" id="preset-protein" type="button">Cascade examples</button>
+        <button class="btn" id="preset-mismatch" type="button">Array ≠ CAGE</button>
         <button class="btn" id="preset-none" type="button">Clear pins</button>
         <span style="flex:1"></span>
         <button class="chip active" id="y-log2" type="button">log2 fold</button>
@@ -57,12 +71,17 @@
       <div id="detail-body"></div>
     </aside>
     <footer class="cite">
-      Source: Yuan J, Cahir-McFarland E, Zhao B, Kieff E.
-      <a href="https://doi.org/10.1128/JVI.80.5.2548-2565.2006" target="_blank" rel="noopener">Virus and cell RNAs expressed during Epstein-Barr virus replication. <em>J Virol.</em> 2006;80(5):2548–2565</a>
-      (Table 1). Fold vs 0 h; negatives inverted to linear. Missing table cells are not plotted.
+      RNA lines: Yuan J, Cahir-McFarland E, Zhao B, Kieff E.
+      <a href="https://doi.org/10.1128/JVI.80.5.2548-2565.2006" target="_blank" rel="noopener"><em>J Virol.</em> 2006;80:2548–2565</a>
+      (Table 1, Akata cytoplasmic RNA). CAGE class:
+      <a href="https://doi.org/10.1371/journal.ppat.1007114" target="_blank" rel="noopener">Djavadian et al. <em>PLOS Pathog.</em> 2018</a>
+      (HEK293, 48 h; not a time series). Protein:
+      <a href="https://doi.org/10.1016/j.celrep.2017.04.062" target="_blank" rel="noopener">Ersing et al. <em>Cell Rep.</em> 2017</a>
+      (TMT, gp350<sup>+</sup>; Akata 0 vs 48 h, P3HR1 0/24/48/72 h). RNA and protein are not paired aliquots. Missing values are not plotted.
     </footer>
   </div>
   <script src="yuan2006.data.js"></script>
+  <script src="cascade.data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
