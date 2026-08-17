@@ -1,0 +1,4 @@
+# Python dependencies for the Yuan 2006 EBV lytic RNA timecourse figure generator.
+matplotlib>=3.11,<4
+numpy>=2.4,<3
+pandas>=3.0,<4
