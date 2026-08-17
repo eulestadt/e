@@ -382,7 +382,7 @@
         <thead><tr><th>Hour</th><th>Fold</th><th>log2</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="note">${g.source_note}. Yuan signed-fold converted to linear (negatives inverted). Missing Table 1 genes are not shown.</p>`;
+      <p class="note">Yuan et al. <em>J Virol</em> 2006 Table 1 (doi:10.1128/JVI.80.5.2548-2565.2006). Signed-fold converted to linear (negatives inverted). Missing table cells are not shown.</p>`;
   }
 
   function render() {

@@ -1,0 +1,14 @@
+{
+  "name": "lytic-phoenix-boston",
+  "compatibility_date": "2026-08-17",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./web"
+  },
+  "routes": [
+    {
+      "pattern": "lytic.phoenix.boston",
+      "custom_domain": true
+    }
+  ]
+}

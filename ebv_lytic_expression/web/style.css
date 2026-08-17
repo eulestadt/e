@@ -28,7 +28,7 @@ html, body {
 .app {
   display: grid;
   grid-template-columns: 280px 1fr 300px;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
   height: 100%;
 }
 
@@ -235,6 +235,18 @@ table.pts .peak td { color: var(--accent); }
   line-height: 1.45;
   margin-top: 14px;
 }
+
+.cite {
+  grid-column: 1 / -1;
+  padding: 8px 18px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.cite a { color: var(--accent); text-decoration: none; }
+.cite a:hover { text-decoration: underline; }
 
 @media (max-width: 980px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto auto 420px auto; }
