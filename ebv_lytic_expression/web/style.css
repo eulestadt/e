@@ -221,7 +221,7 @@ label.ctrl, .chip, button.btn {
 }
 .tooltip strong { font-family: var(--mono); }
 
-.detail h2 {
+.detail-nav { margin-bottom: 8px; }
   margin: 0 0 8px;
   font-size: 20px;
   font-family: var(--mono);
@@ -269,14 +269,31 @@ svg.mini {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+svg.mini.tracks { height: 132px; }
+svg.heat {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
 svg.scatter {
   width: 100%;
-  height: 220px;
+  height: 210px;
   display: block;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
+}
+svg.cage-map { height: 196px; }
+.plot-status {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-family: var(--mono);
+  min-height: 1.2em;
 }
 .legend-mini {
   display: flex;
@@ -298,6 +315,7 @@ svg.scatter {
 .legend-mini .rna::before { background: var(--accent); }
 .legend-mini .akata::before { background: #f0a04b; }
 .legend-mini .p3::before { background: #7dce9a; }
+.legend-mini .leaky::before { background: #f2d06b; }
 
 .cite {
   grid-column: 1 / -1;
