@@ -3,26 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EBV lytic RNA timecourse — Yuan 2006</title>
+  <title>EBV lytic timecourse — RNA and protein</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <h1>EBV lytic RNA vs 0 h</h1>
-      <span class="sub">Akata cytoplasmic RNA vs 0 h · 59 complete oligo series · real-hour x-axis · CAGE class + protein in Focus</span>
+      <div class="topbar-text">
+        <h1 id="page-title">EBV lytic RNA vs 0 h</h1>
+        <span class="sub" id="page-sub">Akata + anti-IgG cytoplasmic RNA · 59 complete oligo series · x-axis is real hours</span>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Dataset">
+        <button class="tab active" role="tab" aria-selected="true" id="tab-yuan" data-dataset="yuan" type="button">Yuan 2006 · RNA</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-ersing" data-dataset="ersing" type="button">Ersing 2017 · protein</button>
+      </nav>
     </header>
 
     <aside class="sidebar">
       <div class="section-label">Find / filter</div>
       <input id="search" class="search" type="search" placeholder="Gene name…" autocomplete="off" />
-      <div class="chips">
-        <button class="chip active" data-class="all" type="button">All</button>
+      <div class="chips" id="kind-chips" hidden>
+        <button class="chip active" data-kind="EBV" type="button">EBV</button>
+        <button class="chip" data-kind="Host" type="button">Host</button>
+        <button class="chip" data-kind="all" type="button">All</button>
+      </div>
+      <div class="chips" id="class-chips">
+        <button class="chip active" data-class="all" type="button">All classes</button>
         <button class="chip" data-class="IE" type="button">IE</button>
         <button class="chip" data-class="E" type="button">Early</button>
         <button class="chip" data-class="L" type="button">Late</button>
         <button class="chip" data-class="Latent" type="button">Latent</button>
         <button class="chip" data-class="Unk" type="button">Unk</button>
+        <button class="chip" data-class="BCR" data-pathway="BCR" type="button">BCR</button>
+        <button class="chip" data-class="Complement" data-pathway="Complement" type="button">Complement</button>
+        <button class="chip" data-class="MHC" data-pathway="MHC" type="button">MHC</button>
       </div>
       <div class="section-label">Pin a class</div>
       <div class="chips">
@@ -30,17 +44,19 @@
         <button class="chip" data-class="E" data-action="pin" type="button">+ Early</button>
         <button class="chip" data-class="L" data-action="pin" type="button">+ Late</button>
       </div>
-      <div class="section-label">CAGE class (Djavadian, 48 h)</div>
-      <div class="chips" id="cage-filter">
-        <button class="chip active" data-cage="all" type="button">All</button>
-        <button class="chip" data-cage="early" type="button">Early</button>
-        <button class="chip" data-cage="leaky" type="button">Leaky</button>
-        <button class="chip" data-cage="late" type="button">True late</button>
-      </div>
-      <div class="chips">
-        <button class="chip" data-cage="early" data-action="pin-cage" type="button">+ CAGE E</button>
-        <button class="chip" data-cage="leaky" data-action="pin-cage" type="button">+ Leaky</button>
-        <button class="chip" data-cage="late" data-action="pin-cage" type="button">+ CAGE L</button>
+      <div id="cage-box">
+        <div class="section-label">CAGE class (Djavadian, 48 h)</div>
+        <div class="chips" id="cage-filter">
+          <button class="chip active" data-cage="all" type="button">All</button>
+          <button class="chip" data-cage="early" type="button">Early</button>
+          <button class="chip" data-cage="leaky" type="button">Leaky</button>
+          <button class="chip" data-cage="late" type="button">True late</button>
+        </div>
+        <div class="chips">
+          <button class="chip" data-cage="early" data-action="pin-cage" type="button">+ CAGE E</button>
+          <button class="chip" data-cage="leaky" data-action="pin-cage" type="button">+ Leaky</button>
+          <button class="chip" data-cage="late" data-action="pin-cage" type="button">+ CAGE L</button>
+        </div>
       </div>
       <div class="section-label" id="count"></div>
       <div id="gene-list" class="gene-list"></div>
@@ -48,6 +64,7 @@
 
     <main class="chart-wrap">
       <div class="toolbar">
+        <div class="chips" id="view-chips" hidden></div>
         <button class="btn primary" id="preset-cal" type="button">Calibrators</button>
         <button class="btn" id="preset-peaks" type="button">Top 8 peaks</button>
         <button class="btn" id="preset-protein" type="button">Cascade examples</button>
@@ -60,7 +77,8 @@
         <button class="chip active" id="band" type="button">10–90% band</button>
       </div>
       <div class="chart-area">
-        <p class="hint">Hover to isolate · click to pin · faint lines = full set</p>
+        <p class="hint" id="chart-hint">Hover to isolate · click to pin · faint lines = full set</p>
+        <div id="key" class="key" hidden></div>
         <svg id="chart" class="chart"></svg>
         <div id="tooltip" class="tooltip"></div>
       </div>
@@ -70,18 +88,11 @@
       <div class="section-label">Focus</div>
       <div id="detail-body"></div>
     </aside>
-    <footer class="cite">
-      RNA lines: Yuan J, Cahir-McFarland E, Zhao B, Kieff E.
-      <a href="https://doi.org/10.1128/JVI.80.5.2548-2565.2006" target="_blank" rel="noopener"><em>J Virol.</em> 2006;80:2548–2565</a>
-      (Table 1, Akata cytoplasmic RNA). CAGE class:
-      <a href="https://doi.org/10.1371/journal.ppat.1007114" target="_blank" rel="noopener">Djavadian et al. <em>PLOS Pathog.</em> 2018</a>
-      (HEK293, 48 h; not a time series). Protein:
-      <a href="https://doi.org/10.1016/j.celrep.2017.04.062" target="_blank" rel="noopener">Ersing et al. <em>Cell Rep.</em> 2017</a>
-      (TMT, gp350<sup>+</sup>; Akata 0 vs 48 h, P3HR1 0/24/48/72 h). RNA and protein are not paired aliquots. CAGE map follows Djavadian Fig. 4 (BALF2 vs BDLF4). Missing values are not plotted.
-    </footer>
+    <footer class="cite" id="cite"></footer>
   </div>
   <script src="yuan2006.data.js"></script>
   <script src="cascade.data.js"></script>
+  <script src="ersing2017.data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
