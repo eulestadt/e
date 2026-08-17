@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EBV lytic RNA timecourse — Yuan 2006</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>EBV lytic RNA vs 0 h</h1>
+      <span class="sub">Akata + anti-IgG cytoplasmic RNA · 59 complete oligo series · x-axis is real hours</span>
+    </header>
+
+    <aside class="sidebar">
+      <div class="section-label">Find / filter</div>
+      <input id="search" class="search" type="search" placeholder="Gene name…" autocomplete="off" />
+      <div class="chips">
+        <button class="chip active" data-class="all" type="button">All</button>
+        <button class="chip" data-class="IE" type="button">IE</button>
+        <button class="chip" data-class="E" type="button">Early</button>
+        <button class="chip" data-class="L" type="button">Late</button>
+        <button class="chip" data-class="Latent" type="button">Latent</button>
+        <button class="chip" data-class="Unk" type="button">Unk</button>
+      </div>
+      <div class="section-label">Pin a class</div>
+      <div class="chips">
+        <button class="chip" data-class="IE" data-action="pin" type="button">+ IE</button>
+        <button class="chip" data-class="E" data-action="pin" type="button">+ Early</button>
+        <button class="chip" data-class="L" data-action="pin" type="button">+ Late</button>
+      </div>
+      <div class="section-label" id="count"></div>
+      <div id="gene-list" class="gene-list"></div>
+    </aside>
+
+    <main class="chart-wrap">
+      <div class="toolbar">
+        <button class="btn primary" id="preset-cal" type="button">Calibrators</button>
+        <button class="btn" id="preset-peaks" type="button">Top 8 peaks</button>
+        <button class="btn" id="preset-none" type="button">Clear pins</button>
+        <span style="flex:1"></span>
+        <button class="chip active" id="y-log2" type="button">log2 fold</button>
+        <button class="chip" id="y-linear" type="button">linear fold</button>
+        <button class="chip active" id="ghosts" type="button">Ghosts</button>
+        <button class="chip active" id="band" type="button">10–90% band</button>
+      </div>
+      <div class="chart-area">
+        <p class="hint">Hover to isolate · click to pin · faint lines = full set</p>
+        <svg id="chart" class="chart"></svg>
+        <div id="tooltip" class="tooltip"></div>
+      </div>
+    </main>
+
+    <aside class="detail">
+      <div class="section-label">Focus</div>
+      <div id="detail-body"></div>
+    </aside>
+    <footer class="cite">
+      Source: Yuan J, Cahir-McFarland E, Zhao B, Kieff E.
+      <a href="https://doi.org/10.1128/JVI.80.5.2548-2565.2006" target="_blank" rel="noopener">Virus and cell RNAs expressed during Epstein-Barr virus replication. <em>J Virol.</em> 2006;80(5):2548–2565</a>
+      (Table 1). Fold vs 0 h; negatives inverted to linear. Missing table cells are not plotted.
+    </footer>
+  </div>
+  <script src="yuan2006.data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
