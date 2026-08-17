@@ -35,63 +35,59 @@ def main() -> None:
 
     linear = wide.map(signed_to_linear)
     log2 = np.log2(linear)
-
-    class_order = ["IE", "IE/E", "E", "L"]
-    class_title = {
-        "IE": "Immediate-early",
-        "IE/E": "IE / early (BMLF1)",
-        "E": "Early",
-        "L": "Late",
-    }
-    # BMRF2 oligo also detects coterminal early BaRF1/BMRF1 (Yuan text) — keep
-    # the line but exclude from the late class mean.
     mean_exclude = {("BMRF2", "L")}
 
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.2), sharex=True, sharey=True)
     axes = axes.ravel()
-    panel_map = {"IE": 0, "IE/E": 0, "E": 1, "L": 2}
+    highlight = {"BZLF1", "BRLF1", "BMLF1", "BMRF1", "BALF5", "BXLF1", "BLLF1", "BFRF3"}
+    class_colors = {"IE": "#d62728", "IE/E": "#d62728", "E": "#1f77b4", "L": "#2ca02c", "LT": "#9467bd", "U": "#7f7f7f"}
 
-    # Individual genes in three class panels
-    for cls in ["IE", "IE/E", "E", "L"]:
-        ax = axes[panel_map[cls]]
-        sub = log2.xs(cls, level="class") if cls in log2.index.get_level_values("class") else None
-        if sub is None:
-            continue
-        for gene, row in sub.iterrows():
-            ax.plot(
-                HOURS,
-                row.values,
-                marker="o",
-                markersize=4,
-                linewidth=1.35,
-                label=gene,
-            )
+    def plot_class(ax, classes, title, labeled=False):
+        n = 0
+        for cls in classes:
+            if cls not in log2.index.get_level_values("class"):
+                continue
+            sub = log2.xs(cls, level="class")
+            for gene, row in sub.iterrows():
+                n += 1
+                is_hi = gene in highlight
+                ax.plot(
+                    HOURS,
+                    row.values,
+                    marker="o" if is_hi else ".",
+                    markersize=5 if is_hi else 3,
+                    linewidth=1.8 if is_hi else 0.9,
+                    alpha=1.0 if is_hi else 0.45,
+                    color=class_colors.get(cls, "0.4"),
+                    label=gene if (labeled or is_hi) else None,
+                )
         ax.axhline(0, color="0.65", linewidth=0.8, linestyle=":")
-        ax.set_title(class_title[cls] if cls != "IE/E" else "Immediate-early")
-        ncol = 3 if cls in {"E", "L"} else 1
-        ax.legend(fontsize=6.7, frameon=False, ncol=ncol, handlelength=1.4)
+        ax.set_title(f"{title} (n={n})")
+        handles, labels = ax.get_legend_handles_labels()
+        if labels:
+            ax.legend(fontsize=7, frameon=False, ncol=2, handlelength=1.4)
         ax.set_xticks(HOURS)
 
-    # Class means (equalized genes only)
+    plot_class(axes[0], ["IE", "IE/E"], "Immediate-early", labeled=True)
+    plot_class(axes[1], ["E"], "Early")
+    plot_class(axes[2], ["L"], "Late")
+
     ax = axes[3]
-    colors = {"IE": "#d62728", "IE/E": "#d62728", "E": "#1f77b4", "L": "#2ca02c"}
-    for cls, label in [("IE", "IE mean (BZLF1, BRLF1)"), ("IE/E", "BMLF1"), ("E", "Early mean"), ("L", "Late mean")]:
+    for cls, label in [("IE", "IE mean"), ("E", "Early mean"), ("L", "Late mean"), ("LT", "Latent mean")]:
+        idx = [i for i in log2.index if i[1] == cls and i not in mean_exclude]
         if cls == "IE":
-            rows = log2.loc[(["BZLF1", "BRLF1"], "IE"), :]
-        elif cls == "IE/E":
-            rows = log2.loc[(["BMLF1"], "IE/E"), :]
-        else:
-            idx = [i for i in log2.index if i[1] == cls and i not in mean_exclude]
-            rows = log2.loc[idx]
-        mean = rows.mean(axis=0)
+            idx = [i for i in log2.index if i[1] in {"IE", "IE/E"}]
+        if not idx:
+            continue
+        rows = log2.loc[idx]
         ax.plot(
             HOURS,
-            mean.values,
+            rows.mean(axis=0).values,
             marker="o",
             markersize=5,
             linewidth=2.2,
-            color=colors[cls],
-            label=label + f" (n={len(rows)})",
+            color=class_colors.get(cls, "C0"),
+            label=f"{label} (n={len(rows)})",
         )
     ax.axhline(0, color="0.65", linewidth=0.8, linestyle=":")
     ax.set_title("Class means (same time points)")
